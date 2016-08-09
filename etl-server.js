@@ -23,7 +23,6 @@ var user = '';
 var cluster = require('cluster');
 var os = require('os');
 
-
 var numCPUs = os.cpus().length;
 var server = new Hapi.Server({
   connections: {
@@ -178,10 +177,10 @@ server.register([
 
       cluster.on('exit', function (worker, code, signal) {
         //refork the cluster
-        //cluster.fork(); 
+        //cluster.fork();
       });
 
-      
+
 
     } else {
       //TODO start HAPI server here
