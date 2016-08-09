@@ -32,6 +32,22 @@ module.exports = function () {
         callback(result);
       });
     },
+    resolveLocationUuidsToName: function resolveLocationUuidsToName(uuids, callback) {
+      var queryParts = {
+        columns: 'name,uuid',
+        table: 'amrs.location',
+        where:['uuid in ?', uuids],
+        offset: 0,
+        limit: 300
+      };
+
+      db.queryServer_test(queryParts, function (result) {
+        //stringify
+        result=JSON.stringify(result);
+        result= JSON.parse(result);
+        callback(result.result);
+      });
+    },
     getReportIndicators: function getReportIndicators(request, callback) {
       var reportName = request.query.report;
       var countBy = request.query.countBy;
@@ -173,8 +189,14 @@ module.exports = function () {
     getPatientFlowData: function getPatientFlowData(request, callback) {
       var reportName = 'patient-flow-report';
       var dateStarted = request.query.dateStarted || new Date().toISOString().substring(0, 10);
-      var locations = request.query.locations;
       if (!_.isUndefined(dateStarted)) dateStarted = dateStarted.split('T')[0];
+      var locations;
+      if (request.query.locations) {
+        locations = [];
+        _.each(request.query.locations.split(','), function (loc) {
+          locations.push(Number(loc));
+        });
+      }
 
       var requestParams = {
         reportName: reportName,
@@ -190,15 +212,14 @@ module.exports = function () {
         ],
         groupBy:'groupByEncounter',
         offset: request.query.startIndex || 0,
-        limit: request.query.limit || 1000
+        limit: request.query.limit || 1000000
       };
 
       //build report
-      var queryParts = reportFactory.singleReportToSql(requestParams, reportName);
-      db.reportQueryServer(queryParts, function (results) {
-        var results = reportFactory.resolveIndicators(reportName, results);
 
-        callback(results);
+      var queryParts = reportFactory.singleReportToSql(requestParams);
+      db.reportQueryServer(queryParts, function (results) {
+        callback(reportFactory.resolveIndicators(reportName, results));
       });
 
     },
