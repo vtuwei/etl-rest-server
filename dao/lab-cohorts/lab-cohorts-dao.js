@@ -6,14 +6,17 @@ var _ = require('underscore');
 var Promise = require('bluebird');
 var reportFactory = require('../../etl-factory');
 var helpers = require('../../etl-helpers');
-
-var max_limit = 1000;
+var eidPatientCohortService = require('../../service/eid/eid-patient-cohort.service');
+var config = require('../../conf/config');
+var etlLogger = require('../../etl-file-logger');
 
 module.exports = {
 
   loadLabCohorts: loadLabCohorts,
   syncLabCohorts: syncLabCohorts
 }
+
+var max_limit = 1000;
 
 function loadLabCohorts(request, reply) {
 
@@ -31,6 +34,27 @@ function loadLabCohorts(request, reply) {
         error: err
       });
     });
+}
+
+function syncLabCohorts(request, reply) {
+
+  var startDate = request.query.startDate;
+  var endDate = request.query.endDate;
+  var limit = max_limit;
+  var offset = 0;
+
+  var params = {
+    startDate: startDate,
+    endDate: endDate,
+    limit: limit,
+    offset: offset
+  };
+
+  //load uuids
+  //loop through them
+
+  etlLogger.logger(config.logging.eidPath + '/' + config.logging.eidFile).info('Starting Patient Sync...');
+  sync(params,reply);
 }
 
 function load(startDate, endDate, limit, offset) {
@@ -58,28 +82,11 @@ function load(startDate, endDate, limit, offset) {
   return db.queryDb(qParts);
 };
 
-function syncLabCohorts(request, reply) {
-
-  var startDate = request.query.startDate;
-  var endDate = request.query.endDate;
-  var limit = request.query.limit;
-  var offset = request.query.offset;
-
-  var params = {
-    startDate: startDate,
-    endDate: endDate,
-    limit: limit,
-    offset: offset
-  };
-
-  //load uuids
-  //loop through them
-  sync(params,reply);
-}
-
 function sync(params, reply) {
 
   var limit = params.limit;
+
+  etlLogger.logger(config.logging.eidPath + '/' + config.logging.eidFile).info('Loading db data: params: '+ JSON.stringify(params));
 
   load(params.startDate, params.endDate, limit, params.offset)
     .then(function(data) {
@@ -118,4 +125,24 @@ function sync(params, reply) {
         error: err
       })
     });
+}
+
+function post(data) {
+
+  var arr = [];
+
+  _.each(data.result, function(row) {
+    //arr.push(row.uuid);
+  });
+
+  arr.push('5ba3e956-1359-11df-a1f1-0026b9348838');
+
+  etlLogger.logger(config.logging.eidPath + '/' + config.logging.eidFile).info('syncronizing ' + arr.length + ' records');
+
+  return new Promise(function(resolve, reject) {
+    eidPatientCohortService.synchronizePatientCohort(arr, function(res) {
+      etlLogger.logger(config.logging.eidPath + '/' + config.logging.eidFile).info('Sync Result: '+ res);
+      resolve(res);
+    });
+  });
 }

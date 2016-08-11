@@ -5,7 +5,7 @@ var analytics = require('./dao/analytics/etl-analytics-dao');
 var clinic = require('./dao/clinic/etl-clinic-dao');
 var patient = require('./dao/patient/etl-patient-dao');
 var eid = require('./dao/eid/etl-eid-dao');
-var labCohorts = require('./dao/lab-cohorts/lab-cohorts');
+var labCohorts = require('./dao/lab-cohorts/lab-cohorts-dao');
 
 module.exports = function() {
   var dao ={};

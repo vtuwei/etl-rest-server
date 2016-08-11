@@ -797,10 +797,7 @@ module.exports = function () {
                 auth: 'simple',
                 handler: function (request, reply) {
 
-                    console.log('default route', request.path);
-
                     dao.loadLabCohorts(request, reply);
-                    //return reply(Boom.forbidden('Not this end point bruh'));
                 },
                 description: 'Home',
                 notes: 'Returns a message that shows ETL service is running.',
@@ -827,10 +824,7 @@ module.exports = function () {
                 auth: 'simple',
                 handler: function (request, reply) {
 
-                    console.log('default rote', request.path);
-
-                    reply('LAB COHORTS SYNC');
-                    //return reply(Boom.forbidden('Not this end point bruh'));
+                    dao.syncLabCohorts(request, reply);
                 },
                 description: 'Home',
                 notes: 'Returns a message that shows ETL service is running.',
