@@ -3,7 +3,6 @@
 
 var db = require('../../etl-db');
 var _ = require('underscore');
-var Promise = require('bluebird');
 var reportFactory = require('../../etl-factory');
 var helpers = require('../../etl-helpers');
 var eidPatientCohortService = require('../../service/eid/eid-patient-cohort.service');
