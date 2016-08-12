@@ -29,6 +29,8 @@ function loadLabCohorts(request, reply) {
     .then(function(data) {
       reply(data);
     }).catch(function(err) {
+      etlLogger.logger(config.logging.eidPath + '/' + config.logging.eidFile)
+        .error('Error Loading lab cohorts: ' + err.stack.split('/n'));
       reply({
         errorMessage: 'error generating report',
         error: err
@@ -50,13 +52,15 @@ function syncLabCohorts(request, reply) {
     offset: offset
   };
 
-  //load uuids
-  //loop through them
-
   etlLogger.logger(config.logging.eidPath + '/' + config.logging.eidFile).info('Starting Patient Sync...');
+  //load uuids and loop through them
   sync(params,reply);
 }
 
+/*
+ * Loads records from the db using an encounter date range
+ * @params startDate, endDate
+ */
 function load(startDate, endDate, limit, offset) {
 
   offset = isNaN(offset) ? 0 : offset;
@@ -64,16 +68,16 @@ function load(startDate, endDate, limit, offset) {
 
   if(!isNaN(limit) && parseInt(limit) > max_limit) limit = max_limit;
 
-  var columns = ["distinct pe.uuid"]; //, "p.patient_id"
+  var columns = ["distinct pe.uuid"];
 
   var qParts = {
     columns: columns,
-    table: "amrs.encounter",
-    alias: 'e',
+    table: "amrs.patient",
+    alias: 'p',
     where: ["e.date_created between ? and ?", startDate, endDate],
-    joins: [
-      ["amrs.patient", "p", "e.patient_id = p.patient_id"],
-      ["amrs.person", "pe", "pe.person_id = p.patient_id"]
+    leftOuterJoins: [
+      ["amrs.person", "pe", "pe.person_id = p.patient_id"],
+      ["amrs.encounter", "e", "e.patient_id = p.patient_id"]
     ],
     offset: offset,
     limit: limit
@@ -82,6 +86,10 @@ function load(startDate, endDate, limit, offset) {
   return db.queryDb(qParts);
 };
 
+/*
+ * Loads records from db and posts them to the sync function.
+ * Calls itself until all db records are syncd
+ */
 function sync(params, reply) {
 
   var limit = params.limit;
@@ -101,8 +109,7 @@ function sync(params, reply) {
 
             offset += size;
             params.offset = offset;
-
-            //continue loading more
+            //repeat sync until there are no more records to load from db
             sync(params, reply);
 
           } else {
@@ -113,12 +120,10 @@ function sync(params, reply) {
         });
       else {
 
-        //TODO - mark complete
         reply({
           status: "success"
         });
       }
-
     }).catch(function(err) {
       reply({
         errorMessage: 'error generating report',
@@ -127,15 +132,16 @@ function sync(params, reply) {
     });
 }
 
+/*
+ * Posts an array of uuids to the sync function
+ */
 function post(data) {
 
   var arr = [];
 
   _.each(data.result, function(row) {
-    //arr.push(row.uuid);
+    arr.push(row.uuid);
   });
-
-  arr.push('5ba3e956-1359-11df-a1f1-0026b9348838');
 
   etlLogger.logger(config.logging.eidPath + '/' + config.logging.eidFile).info('syncronizing ' + arr.length + ' records');
 
