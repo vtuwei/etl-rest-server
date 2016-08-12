@@ -4,7 +4,7 @@ var _ = require('underscore');
 var Promise=require('bluebird');
 var moment=require('moment');
 var config=require('../../conf/config');
-var etlLogger = require('../etl-file-logger');
+var etlLogger = require('../../etl-file-logger');
 module.exports = function(){
   function synchronizePatientCohort(patientUuIdCohort,reply){
     Promise.reduce(patientUuIdCohort,function(previous,patientUuId){
