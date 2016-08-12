@@ -22,7 +22,8 @@ var authorizer = require('./authorization/etl-authorizer');
 var user = '';
 var cluster = require('cluster');
 var os = require('os');
-
+var locationAuthorizer = require('./authorization/location-authorizer.plugin');
+var cache = require('./session-cache');
 var numCPUs = os.cpus().length;
 var server = new Hapi.Server({
   connections: {
@@ -50,46 +51,65 @@ server.connection({
 });
 var pool = mysql.createPool(config.mysql);
 
-var validate = function (username, password, callback) {
+var validate = function(username, password, callback) {
 
   //Openmrs context
   var openmrsAppName = config.openmrs.applicationName || 'amrs';
+  var authBuffer = new Buffer(username + ":" + password).toString("base64");
   var options = {
     hostname: config.openmrs.host,
     port: config.openmrs.port,
     path: '/' + openmrsAppName + '/ws/rest/v1/session',
     headers: {
-      'Authorization': "Basic " + new Buffer(username + ":" + password).toString("base64")
+      'Authorization': "Basic " + authBuffer
     }
   };
-  if (config.openmrs.https) {
-    https = require('https');
-  }
-  https.get(options, function (res) {
-    var body = '';
-    res.on('data', function (chunk) {
-      body += chunk;
-    });
-    res.on('end', function () {
-      var result = JSON.parse(body);
-      user = result.user.username;
-      authorizer.setUser(result.user);
-      var currentUser = {
-        username: username,
-        role: authorizer.isSuperUser() ?
-          authorizer.getAllPrivilegesArray() :
-          authorizer.getCurrentUserPreviliges()
-      };
+  var key = '';
+  cache.encriptKey(authBuffer, function(hash) {
+    key = hash;
+  }, function() {
 
-      //console.log('Logged in user:', currentUser);
-
-      callback(null, result.authenticated, currentUser);
-
-    });
-  }).on('error', function (error) {
-    //console.log(error);
-    callback(null, false);
   });
+  if (cache.getFromToCache(key) === null) {
+    if (config.openmrs.https) {
+      https = require('https');
+    }
+    https.get(options, function(res) {
+      var body = '';
+      res.on('data', function(chunk) {
+        body += chunk;
+      });
+      res.on('end', function() {
+        var result = JSON.parse(body);
+        user = result.user.username;
+        authorizer.setUser(result.user);
+        authorizer.getUserAuthorizedLocations(result.user.userProperties, function(authorizedLocations) {
+          var currentUser = {
+            username: username,
+            role: authorizer.isSuperUser() ?
+              authorizer.getAllPrivilegesArray() : authorizer.getCurrentUserPreviliges(),
+            authorizedLocations: authorizedLocations
+          };
+          cache.saveToCache(key, {
+            result: result,
+            currentUser: currentUser
+          });
+          callback(null, result.authenticated, currentUser);
+        });
+      });
+    }).on('error', function(error) {
+      //console.log(error);
+      callback(null, false);
+    });
+  } else {
+    var cached = cache.getFromToCache(key);
+    authorizer.setUser(cached.result.user);
+    cache.saveToCache(key, {
+      result: cached.result,
+      currentUser: cached.currentUser
+    });
+    callback(null, cached.result.authenticated, cached.currentUser);
+  }
 };
 
 var HapiSwaggerOptions = {
@@ -100,39 +120,41 @@ var HapiSwaggerOptions = {
   tags: [{
     'name': 'patient'
   }, {
-      'name': 'location'
-    }],
+    'name': 'location'
+  }],
   sortEndpoints: 'path'
 };
 
-server.ext('onRequest', function (request, reply) {
+server.ext('onRequest', function(request, reply) {
   requestConfig.setAuthorization(request.headers.authorization);
   return reply.continue();
 
 });
 server.register([
-  Inert,
-  Vision, {
-    'register': HapiSwagger,
-    'options': HapiSwaggerOptions
-  }, {
-    register: Basic,
-    options: {}
-  }, {
-    register: hapiAuthorization,
-    options: {
-      roles: authorizer.getAllPrivilegesArray()
+    Inert,
+    Vision, {
+      'register': HapiSwagger,
+      'options': HapiSwaggerOptions
+    }, {
+      register: Basic,
+      options: {}
+    }, {
+      register: hapiAuthorization,
+      options: {
+        roles: authorizer.getAllPrivilegesArray()
+      }
+    }, {
+      register: Good,
+      options: {
+        reporters: []
+      }
+    }, {
+      register: locationAuthorizer,
+      options: {}
     }
-  },
-  {
-    register: Good,
-    options: {
-      reporters: []
-    }
-  }
-],
+  ],
 
-  function (err) {
+  function(err) {
     if (err) {
       throw err; // something bad happened loading the plugin
     }
@@ -149,17 +171,14 @@ server.register([
       server.route(elasticRoutes[route]);
     }
 
-    server.on('response', function (request) {
+    server.on('response', function(request) {
       if (request.response === undefined || request.response === null) {
         console.log("No response");
       } else {
         console.log(
           'Username:',
           user + '\n' +
-          moment().local().format("YYYY-MM-DD HH:mm:ss") + ': ' + server.info.uri + ': '
-          + request.method.toUpperCase() + ' '
-          + request.url.path + ' \n '
-          + request.response.statusCode
+          moment().local().format("YYYY-MM-DD HH:mm:ss") + ': ' + server.info.uri + ': ' + request.method.toUpperCase() + ' ' + request.url.path + ' \n ' + request.response.statusCode
         );
 
       }
@@ -175,7 +194,7 @@ server.register([
         cluster.fork();
       }
 
-      cluster.on('exit', function (worker, code, signal) {
+      cluster.on('exit', function(worker, code, signal) {
         //refork the cluster
         //cluster.fork();
       });
@@ -184,7 +203,7 @@ server.register([
 
     } else {
       //TODO start HAPI server here
-      server.start(function () {
+      server.start(function() {
         console.log('info', 'Server running at: ' + server.info.uri);
         server.log('info', 'Server running at: ' + server.info.uri);
       });

@@ -12,6 +12,7 @@
   "author": "AMPATH DEVS",
   "license": "ISC",
   "dependencies": {
+    "bcrypt": "^0.8.7",
     "bluebird": "^3.4.0",
     "body-parser": "^1.15.1",
     "boom": "^2.10.1",
@@ -31,6 +32,7 @@
     "hapi-authorization": "^3.0.2",
     "hapi-cors-headers": "^1.0.0",
     "hapi-swagger": "^4.2.1",
+    "hoek": "^4.0.2",
     "https": "^1.0.0",
     "inert": "^3.2.0",
     "joi": "^8.0.4",
@@ -38,6 +40,7 @@
     "jshint": "^2.8.0",
     "lodash": "^3.10.1",
     "math": "0.0.3",
+    "memory-cache": "^0.1.6",
     "moment": "^2.13.0",
     "multer": "^1.1.0",
     "mysql": "^2.6.2",
