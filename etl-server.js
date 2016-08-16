@@ -25,6 +25,8 @@ var os = require('os');
 var locationAuthorizer = require('./authorization/location-authorizer.plugin');
 var cache = require('./session-cache');
 var numCPUs = os.cpus().length;
+var readdirp = require('readdirp');
+
 var server = new Hapi.Server({
   connections: {
     //routes: {cors:{origin:["https://amrs.ampath.or.ke:8443"]}}
@@ -162,10 +164,14 @@ server.register([
       validateFunc: validate
     });
 
-    //Adding routes
-    for (var route in routes) {
-      server.route(routes[route]);
-    }
+    server.register([
+      {
+        register: require('hapi-router'),
+        options: {
+          routes: 'routes/**/*.js' // uses glob to include files
+        }
+      }
+    ]);
 
     for (var route in elasticRoutes) {
       server.route(elasticRoutes[route]);

@@ -221,7 +221,6 @@ module.exports = function () {
       db.reportQueryServer(queryParts, function (results) {
         callback(reportFactory.resolveIndicators(reportName, results));
       });
-
     },
     getIndicatorsSchemaWithSections: function getIndicatorsSchemaWithSections(request, callback) {
       var reportName = request.query.report;

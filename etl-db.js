@@ -32,7 +32,7 @@ module.exports = function () {
     };
     var queryLimit = 300;
     var queryOffset = 0;
-
+    
     function _updateJoins(join, s, sq) {
       if (sq) {
         if(_.isUndefined(join.joinExpression) || join.joinExpression === '') {
