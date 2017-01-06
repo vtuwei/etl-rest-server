@@ -9,7 +9,7 @@ var Sync = {
 
   timeout: 3000,
 
-  records_limit: 1,
+  records_limit: 20,
 
   processing: false,
 
@@ -22,6 +22,7 @@ var Sync = {
 
     if (config.etl.tls) {
         https = require('https');
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
     }
 
     // load records from sync queue
@@ -105,13 +106,16 @@ var Sync = {
 
     console.log('syncing single record. ' + patientUuId);
 
-    var url = 'http://' + config.etl.host + ':' + config.etl.port + '/etl/patient-lab-orders?patientUuId=' + patientUuId;
+    var protocol = config.etl.tls ? 'https://' : 'http://';
+
+    var url = protocol + config.etl.host + ':' + config.etl.port + '/etl/patient-lab-orders?patientUuId=' + patientUuId;
 
     var usernamePass = config.eidSyncCredentials.username + ":" + config.eidSyncCredentials.password;
     var auth = "Basic " + new Buffer(usernamePass).toString('base64');
 
     var options = {
       url: url,
+      insecure: config.etl.tls,
       headers: {
         'Authorization': auth
       }
